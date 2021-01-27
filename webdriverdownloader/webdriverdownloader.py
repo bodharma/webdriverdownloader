@@ -16,8 +16,6 @@ import zipfile
 from bs4 import BeautifulSoup
 import requests
 import tqdm
-import random
-import string
 from .util import get_architecture_bitness
 from loguru import logger
 
@@ -61,11 +59,11 @@ class WebDriverDownloaderBase:
         if not os.path.isdir(self.download_root):
             os.makedirs(self.download_root)
             logger.info(
-                "Created download root directory: {0}".format(self.download_root)
+                f"Created download root directory: {self.download_root}"
             )
         if not os.path.isdir(self.link_path):
             os.makedirs(self.link_path)
-            logger.info("Created symlink directory: {0}".format(self.link_path))
+            logger.info(f"Created symlink directory: {self.link_path}")
 
     @abc.abstractmethod
     def get_driver_filename(self, os_name=None):
@@ -137,18 +135,14 @@ class WebDriverDownloaderBase:
             os.makedirs(self.download_path)
         if os.path.exists(filename_with_path):
             logger.info(
-                "Skipping download. File {0} already on filesystem.".format(
-                    filename_with_path
-                )
+                f"Skipping download. File {filename_with_path} already on filesystem."
             )
             return filename_with_path
         else:
             data = requests.get(download_url, stream=True)
             if data.status_code == 200:
                 logger.debug(
-                    "Starting download of {0} to {1}".format(
-                        download_url, filename_with_path
-                    )
+                    f"Starting download of {download_url} to {filename_with_path}"
                 )
                 with open(filename_with_path, mode="wb") as fileobj:
                     chunk_size = 1024
@@ -164,16 +158,12 @@ class WebDriverDownloaderBase:
                         for chunk in data.iter_content(chunk_size):
                             fileobj.write(chunk)
                 logger.debug(
-                    "Finished downloading {0} to {1}".format(
-                        download_url, filename_with_path
-                    )
+                    f"Finished downloading {download_url} to {filename_with_path}"
                 )
                 return filename_with_path
             else:
                 error_message = (
-                    "Error downloading file {0}, got status code: {1}".format(
-                        filename, data.status_code
-                    )
+                    f"Error downloading file {filename}, got status code: {data.status_code}"
                 )
                 logger.error(error_message)
                 raise RuntimeError(error_message)
@@ -184,7 +174,6 @@ class WebDriverDownloaderBase:
         os_name=None,
         bitness=None,
         show_progress_bar=True,
-        custom_folder=False,
     ):
         """
         Method for downloading a web driver binary, extracting it into the download directory and creating a symlink
@@ -219,23 +208,21 @@ class WebDriverDownloaderBase:
             tar = True
             extract_dir = os.path.join(self.download_path, filename.split("-")[0])
         else:
-            error_message = "Unknown archive format: {0}".format(filename)
+            error_message = f"Unknown archive format: {filename}"
             logger.error(error_message)
             raise RuntimeError(error_message)
 
         if not os.path.exists(extract_dir):
             os.makedirs(extract_dir)
-            logger.debug("Created directory: {0}".format(extract_dir))
+            logger.debug(f"Created directory: {extract_dir}")
 
         if tar:
             with tarfile.open(filename_with_path, mode="r:*") as tar_file:
                 tar_file.extractall(extract_dir)
-                # logger.debug(f"Extracted files: {','.join(tar_file.getnames())}")
 
         if zip:
             with zipfile.ZipFile(filename_with_path, mode="r") as zip_file:
                 zip_file.extractall(extract_dir)
-                # logger.debug(f"Extracted files: {','.join(zip_file.namelist())}")
 
         driver_filename = self.get_driver_filename(os_name=os_name)
 
@@ -256,9 +243,7 @@ class WebDriverDownloaderBase:
                 else:
                     if same_file_link:
                         logger.info(
-                            "Symlink already exists: {0} -> {1}".format(
-                                symlink_target, symlink_src
-                            )
+                            f"Symlink already exists: {symlink_target} -> {symlink_src}"
                         )
                         return tuple([symlink_src, symlink_target])
 
@@ -278,7 +263,7 @@ class WebDriverDownloaderBase:
             dest_file = os.path.join(self.link_path, driver_filename)
             if os.path.isfile(dest_file):
                 logger.info(
-                    "File {0} already exists and will be overwritten.".format(dest_file)
+                    f"File {dest_file} already exists and will be overwritten."
                 )
             shutil.copy2(src_file, dest_file)
             return tuple([src_file, dest_file])
@@ -310,9 +295,7 @@ class GeckoDriverDownloader(WebDriverDownloaderBase):
                 ver = info.json()["tag_name"]
                 return os.path.join(self.download_root, "gecko", ver)
             else:
-                info_message = "Error attempting to get version info via API, got status code: {0}".format(
-                    info.status_code
-                )
+                info_message = f"Error attempting to get version info via API, got status code: {info.status_code}"
                 logger.info(info_message)
                 resp = requests.get(self.gecko_driver_releases_ui_url + version)
                 if resp.status_code == 200:
@@ -350,29 +333,28 @@ class GeckoDriverDownloader(WebDriverDownloaderBase):
         )
 
         logger.debug(
-            "Attempting to access URL: {0}".format(gecko_driver_version_release_api_url)
+            f"Attempting to access URL: {gecko_driver_version_release_api_url}"
         )
         info = requests.get(gecko_driver_version_release_api_url)
         if info.status_code != 200:
-            info_message = "Error, unable to get info for gecko driver {0} release. Status code: {1}".format(
-                version, info.status_code
+            logger.info(
+                f"Error, unable to get info for gecko driver {version} release. Status code: {info.status_code}"
             )
-            logger.info(info_message)
             resp = requests.get(
                 gecko_driver_version_release_ui_url, allow_redirects=True
             )
             if resp.status_code == 200:
                 json_data = {"assets": []}
-            soup = BeautifulSoup(resp.text, features="html.parser")
-            urls = [
-                resp.url + a["href"]
-                for a in soup.find_all("a", href=True)
-                if r"/download/" in a["href"]
-            ]
-            for url in urls:
-                json_data["assets"].append(
-                    {"name": Path(urlsplit(url).path).name, "browser_download_url": url}
-                )
+                soup = BeautifulSoup(resp.text, features="html.parser")
+                urls = [
+                    resp.url + a["href"]
+                    for a in soup.find_all("a", href=True)
+                    if r"/download/" in a["href"]
+                ]
+                for url in urls:
+                    json_data["assets"].append(
+                        {"name": Path(urlsplit(url).path).name, "browser_download_url": url}
+                    )
         else:
             json_data = info.json()
 
@@ -381,30 +363,26 @@ class GeckoDriverDownloader(WebDriverDownloaderBase):
 
         if bitness is None:
             bitness = get_architecture_bitness()
-            logger.debug("Detected OS: {0}bit {1}".format(bitness, os_name))
+            logger.debug(f"Detected OS: {bitness}bit {os_name}")
 
         filenames = [asset["name"] for asset in json_data["assets"]]
         filename = [name for name in filenames if os_name in name]
         if len(filename) == 0:
-            info_message = "Error, unable to find a download for os: {0}".format(
-                os_name
-            )
+            info_message = f"Error, unable to find a download for os: {os_name}"
             logger.error(info_message)
             raise RuntimeError(info_message)
         if len(filename) > 1:
             filename = [name for name in filenames if os_name + bitness in name]
             if len(filename) != 1:
                 info_message = (
-                    "Error, unable to determine correct filename for {0}bit {1}".format(
-                        bitness, os_name
-                    )
+                    f"Error, unable to determine correct filename for {bitness}bit {os_name}"
                 )
                 logger.error(info_message)
                 raise RuntimeError(info_message)
         filename = filename[0]
 
         result = json_data["assets"][filenames.index(filename)]["browser_download_url"]
-        logger.info("Download URL: {0}".format(result))
+        logger.info(f"Download URL: {result}")
         return result
 
 
@@ -416,9 +394,7 @@ class ChromeDriverDownloader(WebDriverDownloaderBase):
     def _get_latest_version_number(self):
         resp = requests.get(self.chrome_driver_base_url + "/o/LATEST_RELEASE")
         if resp.status_code != 200:
-            error_message = "Error, unable to get version number for latest release, got code: {0}".format(
-                resp.status_code
-            )
+            error_message = f"Error, unable to get version number for latest release, got code: {resp.status_code}"
             logger.error(error_message)
             raise RuntimeError(error_message)
         latest_release = requests.get(resp.json()["mediaLink"])
@@ -465,7 +441,7 @@ class ChromeDriverDownloader(WebDriverDownloaderBase):
 
         if bitness is None:
             bitness = get_architecture_bitness()
-            logger.debug("Detected OS: {0}bit {1}".format(bitness, os_name))
+            logger.debug(f"Detected OS: {bitness}bit {os_name}")
 
         chrome_driver_objects = requests.get(self.chrome_driver_base_url + "/o")
         matching_versions = [
@@ -478,9 +454,7 @@ class ChromeDriverDownloader(WebDriverDownloaderBase):
         ]
         if not os_matching_versions:
             error_message = (
-                "Error, unable to find appropriate download for {0}.".format(
-                    os_name + bitness
-                )
+                f"Error, unable to find appropriate download for {os_name + bitness}."
             )
             logger.error(error_message)
             raise RuntimeError(error_message)
@@ -490,140 +464,3 @@ class ChromeDriverDownloader(WebDriverDownloaderBase):
             return [
                 item for item in matching_versions if os_name + bitness in item["name"]
             ][0]["mediaLink"]
-
-
-class OperaChromiumDriverDownloader(WebDriverDownloaderBase):
-    """Class for downloading the Opera Chromium WebDriver."""
-
-    opera_chromium_driver_releases_api_url = (
-        "https://api.github.com/repos/operasoftware/operachromiumdriver/releases/"
-    )
-    opera_chromium_driver_releases_ui_url = (
-        "https://github.com/operasoftware/operachromiumdriver/releases/"
-    )
-
-    def get_driver_filename(self, os_name=None):
-        """
-        Method for getting the filename of the web driver binary.
-
-        :param os_name: Name of the OS to download the web driver binary for, as a str.  If not specified, we will use
-                        platform.system() to get the OS.
-        :returns: The filename of the web driver binary.
-        """
-        if os_name is None:
-            os_name = platform.system()
-        if os_name == "Windows":
-            return "operadriver.exe"
-        else:
-            return "operadriver"
-
-    def get_download_path(self, version="latest"):
-        if version == "latest":
-            info = requests.get(self.opera_chromium_driver_releases_api_url + version)
-            if info.status_code != 200:
-                info_message = "Error attempting to get version info via API, got status code: {0}".format(
-                    info.status_code
-                )
-                logger.info(info_message)
-                resp = requests.get(
-                    self.opera_chromium_driver_releases_ui_url + version
-                )
-                if resp.status_code == 200:
-                    ver = Path(urlsplit(resp.url).path).name
-            else:
-                ver = info.json()["tag_name"]
-        else:
-            ver = version
-        return os.path.join(self.download_root, "operachromium", ver)
-
-    def get_download_url(self, version="latest", os_name=None, bitness=None):
-        """
-        Method for getting the download URL for the Opera Chromium driver binary.
-
-        :param version: String representing the version of the web driver binary to download.  For example, "v2.36".
-                        Default if no version is specified is "latest".  The version string should match the version
-                        as specified on the download page of the webdriver binary.
-        :param os_name: Name of the OS to download the web driver binary for, as a str.  If not specified, we will use
-                        platform.system() to get the OS.
-        :param bitness: Bitness of the web driver binary to download, as a str e.g. "32", "64".  If not specified, we
-                        will try to guess the bitness by using util.get_architecture_bitness().
-        :returns: The download URL for the Opera Chromium driver binary.
-        """
-        if version == "latest":
-            opera_chromium_driver_version_release_api_url = (
-                self.opera_chromium_driver_releases_api_url + version
-            )
-            opera_chromium_driver_version_release_ui_url = (
-                self.opera_chromium_driver_releases_ui_url + version
-            )
-        else:
-            opera_chromium_driver_version_release_api_url = (
-                self.opera_chromium_driver_releases_api_url + "tags/" + version
-            )
-            opera_chromium_driver_version_release_ui_url = (
-                self.opera_chromium_driver_releases_ui_url + "tags/" + version
-            )
-        logger.debug(
-            "Attempting to access URL: {0}".format(
-                opera_chromium_driver_version_release_api_url
-            )
-        )
-        info = requests.get(opera_chromium_driver_version_release_api_url)
-        if info.status_code != 200:
-            info_message = "Error, unable to get info for opera chromium driver {0} release. Status code: {1}".format(
-                version, info.status_code
-            )
-            logger.info(info_message)
-            resp = requests.get(
-                opera_chromium_driver_version_release_ui_url, allow_redirects=True
-            )
-            if resp.status_code == 200:
-                json_data = {"assets": []}
-            soup = BeautifulSoup(resp.text, features="html.parser")
-            urls = [
-                resp.url + a["href"]
-                for a in soup.find_all("a", href=True)
-                if r"/download/" in a["href"]
-            ]
-            for url in urls:
-                json_data["assets"].append(
-                    {"name": Path(urlsplit(url).path).name, "browser_download_url": url}
-                )
-        else:
-            json_data = info.json()
-
-        if os_name is None:
-            os_name = platform.system()
-            if os_name == "Darwin":
-                os_name = "mac"
-            elif os_name == "Windows":
-                os_name = "win"
-            elif os_name == "Linux":
-                os_name = "linux"
-        if bitness is None:
-            bitness = get_architecture_bitness()
-            logger.debug("Detected OS: {0}bit {1}".format(bitness, os_name))
-
-        filenames = [asset["name"] for asset in json_data["assets"]]
-        filename = [name for name in filenames if os_name in name]
-        if len(filename) == 0:
-            error_message = "Error, unable to find a download for os: {0}".format(
-                os_name
-            )
-            logger.error(error_message)
-            raise RuntimeError(error_message)
-        if len(filename) > 1:
-            filename = [name for name in filenames if os_name + bitness in name]
-            if len(filename) != 1:
-                error_message = (
-                    "Error, unable to determine correct filename for {0}bit {1}".format(
-                        bitness, os_name
-                    )
-                )
-                logger.error(error_message)
-                raise RuntimeError(error_message)
-        filename = filename[0]
-
-        result = json_data["assets"][filenames.index(filename)]["browser_download_url"]
-        logger.info("Download URL: {0}".format(result))
-        return result
