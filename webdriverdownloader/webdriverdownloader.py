@@ -332,11 +332,22 @@ class GeckoDriverDownloader(WebDriverDownloaderBase):
             else self.gecko_driver_releases_ui_url + "tags/" + version
         )
 
+        os_map = {"Darwin": "mac", "Windows": "win", "Linux": "linux"}
+        os_name = os_map[self.os_name] if os_name is None else os_name
+
+        if bitness is None:
+            bitness = get_architecture_bitness()
+            logger.debug(f"Detected OS: {bitness}bit {os_name}")
+
+
         logger.debug(
             f"Attempting to access URL: {gecko_driver_version_release_api_url}"
         )
         info = requests.get(gecko_driver_version_release_api_url)
-        if info.status_code != 200:
+        if info.status_code == 200:
+            json_data = info.json()
+        else:
+            json_data = {"assets": []}
             logger.info(
                 f"Error, unable to get info for gecko driver {version} release. Status code: {info.status_code}"
             )
@@ -344,7 +355,6 @@ class GeckoDriverDownloader(WebDriverDownloaderBase):
                 gecko_driver_version_release_ui_url, allow_redirects=True
             )
             if resp.status_code == 200:
-                json_data = {"assets": []}
                 soup = BeautifulSoup(resp.text, features="html.parser")
                 urls = [
                     resp.url + a["href"]
@@ -355,18 +365,9 @@ class GeckoDriverDownloader(WebDriverDownloaderBase):
                     json_data["assets"].append(
                         {"name": Path(urlsplit(url).path).name, "browser_download_url": url}
                     )
-        else:
-            json_data = info.json()
 
-        os_map = {"Darwin": "mac", "Windows": "win", "Linux": "linux"}
-        os_name = os_map[self.os_name]
-
-        if bitness is None:
-            bitness = get_architecture_bitness()
-            logger.debug(f"Detected OS: {bitness}bit {os_name}")
-
-        filenames = [asset["name"] for asset in json_data["assets"]]
-        filename = [name for name in filenames if os_name in name]
+        filenames = [asset["name"] for asset in json_data["assets"] if len(json_data["assets"]) > 0]
+        filename = [name for name in filenames if (os_name in name) and (len(filenames) > 0)]
         if len(filename) == 0:
             info_message = f"Error, unable to find a download for os: {os_name}"
             logger.error(info_message)
@@ -436,7 +437,6 @@ class ChromeDriverDownloader(WebDriverDownloaderBase):
             version = self._get_latest_version_number()
 
         os_map = {"Darwin": "mac", "Windows": "win", "Linux": "linux"}
-
         os_name = os_map[self.os_name] if os_name is None else os_name
 
         if bitness is None:
