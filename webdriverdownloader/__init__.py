@@ -1,6 +1,18 @@
 try:
-    from webdriverdownloader import ChromeDriverDownloader, GeckoDriverDownloader, OperaChromiumDriverDownloader
+    from webdriverdownloader import (
+        ChromeDriverDownloader,
+        GeckoDriverDownloader,
+        OperaChromiumDriverDownloader,
+    )
 except ImportError:
-    from .webdriverdownloader import ChromeDriverDownloader, GeckoDriverDownloader, OperaChromiumDriverDownloader
+    from .webdriverdownloader import (
+        ChromeDriverDownloader,
+        GeckoDriverDownloader,
+        OperaChromiumDriverDownloader,
+    )
 
-__all__ = ['ChromeDriverDownloader', 'GeckoDriverDownloader', 'OperaChromiumDriverDownloader']
+__all__ = [
+    "ChromeDriverDownloader",
+    "GeckoDriverDownloader",
+    "OperaChromiumDriverDownloader",
+]
