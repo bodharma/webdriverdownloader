@@ -5,16 +5,12 @@ import os.path
 from webdriverdownloader import (
     ChromeDriverDownloader,
     GeckoDriverDownloader,
-    OperaChromiumDriverDownloader,
 )
 
 
 downloaders = {
     "chrome": ChromeDriverDownloader,
     "firefox": GeckoDriverDownloader,
-    # "gecko": GeckoDriverDownloader,
-    # "mozilla": GeckoDriverDownloader,
-    # "opera": OperaChromiumDriverDownloader,
 }
 
 
