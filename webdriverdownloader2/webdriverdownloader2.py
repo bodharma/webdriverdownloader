@@ -19,7 +19,7 @@ import tqdm
 from .util import get_architecture_bitness
 from loguru import logger
 
-logger.disable("webdriverdownloader")
+logger.disable("webdriverdownloader2")
 
 
 class WebDriverDownloaderBase:

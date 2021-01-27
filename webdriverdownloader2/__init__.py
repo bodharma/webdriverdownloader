@@ -1,10 +1,10 @@
 try:
-    from webdriverdownloader import (
+    from webdriverdownloader2 import (
         ChromeDriverDownloader,
         GeckoDriverDownloader,
     )
 except ImportError:
-    from .webdriverdownloader import (
+    from .webdriverdownloader2 import (
         ChromeDriverDownloader,
         GeckoDriverDownloader,
     )

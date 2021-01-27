@@ -36,7 +36,7 @@ This module is dependent on the following additional packages:
 - `requests <https://pypi.org/project/requests/>`_
 - `tqdm <https://pypi.org/project/tqdm/>`_
 - `py-cpuinfo <https://pypi.org/project/py-cpuinfo/>`_
-- `loguru <https://pypi.org/project/loguru/>`
+- `loguru <https://pypi.org/project/loguru/>`_
 
 
 Classes
@@ -46,13 +46,13 @@ The following classes are available:
 
 - ``ChromeDriverDownloader`` for downloading and installing `chromedriver <https://sites.google.com/a/chromium.org/chromedriver/downloads>`_ (for Google Chrome).
 - ``GeckoDriverDownloader`` for downloading and installing `geckodriver <https://github.com/mozilla/geckodriver>`_ (for Mozilla Firefox).
-- ``OperaChromiumDriverDownloader`` for downloading and installing `operadriver <https://github.com/operasoftware/operachromiumdriver>`_ (for Chromium based Opera browsers).
 
 
 Status
 ------
 
-Currently being developed/tested using 3.8.1 on macOS.
+![Python package cross version testing](https://github.com/bodharma/webdriverdownloader/workflows/Python%20package%20cross%20version%20testing/badge.svg)
+
 
 
 Example module usage
@@ -81,33 +81,16 @@ Command line tool
 There is a command-line tool that is also available.  After installing the
 package, it can be used as follows (Windows example)::
 
-   > webdriverdownloader chrome:2.38 firefox opera:v.2.35
+   > webdriverdownloader chrome:2.38 firefox
    Downloading WebDriver for browser: 'chrome'
    3300kb [00:00, 11216.38kb/s]
-   Driver binary downloaded to: C:\Users\lsaguisag\webdriver\chrome\2.38\2.38%2Fchromedriver_win32\chromedriver.exe
+   Driver binary downloaded to: C:\Users\lsaguisag\webdriver\chrome\2.38\chromedriver_win32\chromedriver.exe
    Driver copied to: C:\Users\lsaguisag\bin\chromedriver.exe
 
    Downloading WebDriver for browser: 'firefox'
    3031kb [00:01, 2253.64kb/s]
    Driver binary downloaded to: C:\Users\lsaguisag\webdriver\gecko\v0.20.1\geckodriver-v0.20.1-win64\geckodriver.exe
    Driver copied to: C:\Users\lsaguisag\bin\geckodriver.exe
-
-   Downloading WebDriver for browser: 'opera'
-   3548kb [00:02, 1239.02kb/s]
-   Driver binary downloaded to: C:\Users\lsaguisag\webdriver\operachromium\v.2.35\operadriver_win64\operadriver_win64\operadriver.exe
-   Driver copied to: C:\Users\lsaguisag\bin\operadriver.exe
-
-   WARNING: Path 'C:\Users\lsaguisag\bin' is not in the PATH environment variable.
-
-In the above example, a version was specified for Chrome and Opera while no
-version was specified for Firefox so the latest version of ``geckodriver`` was
-implicitly downloaded.
-
-
-TODOs
------
-
-- Test on Linux
 
 
 License

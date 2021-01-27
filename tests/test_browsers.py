@@ -1,5 +1,5 @@
 from selenium import webdriver
-from webdriverdownloader import ChromeDriverDownloader
+from webdriverdownloader2 import ChromeDriverDownloader
 
 
 def test_chromedriver():
