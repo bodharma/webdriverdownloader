@@ -11,7 +11,7 @@ def test_chromedriver():
     chrome_options.add_argument("--disable-gpu")
     driver = webdriver.Chrome(
         service_args=["--verbose", "--log-path=/tmp/qc1.log"],
-        executable_path=src_file,
+        executable_path=dest_file,
         chrome_options=chrome_options,
     )
     driver.get("http://google.com")

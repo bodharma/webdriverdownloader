@@ -9,7 +9,6 @@ import os.path
 from pathlib import Path
 import platform
 import shutil
-import stat
 import tarfile
 from urllib.parse import urlparse, urlsplit
 import zipfile
@@ -39,31 +38,18 @@ class WebDriverDownloaderBase:
         :param os_name: Name of the OS to download the web driver binary for, as a str.  If not specified, we will use
                         platform.system() to get the OS.
         """
-        if os_name is None:
-            self.os_name = platform.system()
-        if self.os_name in ["Darwin", "Linux"] and os.geteuid() == 0:
-            base_path = "/usr/local"
-        else:
-            base_path = os.path.expanduser("~")
+        self.os_name = platform.system() if os_name is None else os_name
 
-        if download_root is None:
-            self.download_root = os.path.join(base_path, "webdriver")
-        else:
-            self.download_root = download_root
+        base_path = Path("/usr/local") if self.os_name in ["Darwin", "Linux"] and (os.geteuid() == 0) else Path.home()
 
-        if link_path is None:
-            self.link_path = os.path.join(base_path, "bin")
-        else:
-            self.link_path = link_path
+        self.download_root = base_path.joinpath("webdriver") if download_root is None else download_root
 
-        if not os.path.isdir(self.download_root):
-            os.makedirs(self.download_root)
-            logger.info(
-                f"Created download root directory: {self.download_root}"
-            )
-        if not os.path.isdir(self.link_path):
-            os.makedirs(self.link_path)
-            logger.info(f"Created symlink directory: {self.link_path}")
+        self.link_path = base_path.joinpath("bin") if link_path is None else link_path
+
+        self.download_root.mkdir(parents=True, exist_ok=True)
+        logger.info(f"Download root directory: {str(self.download_root)}")
+        self.link_path.mkdir(parents=True, exist_ok=True)
+        logger.info(f"Symlink directory: {str(self.link_path)}")
 
     @abc.abstractmethod
     def get_driver_filename(self, os_name=None):
@@ -130,19 +116,18 @@ class WebDriverDownloaderBase:
             else os.path.split(urlparse(download_url).path)[1]
         )
         self.download_path = self.get_download_path(version)
-        filename_with_path = os.path.join(self.download_path, filename)
-        if not os.path.exists(self.download_path):
-            os.makedirs(self.download_path)
-        if os.path.exists(filename_with_path):
+        filename_with_path = self.download_path.joinpath(filename)
+        self.download_path.mkdir(parents=True, exist_ok=True)
+        if filename_with_path.exists():
             logger.info(
-                f"Skipping download. File {filename_with_path} already on filesystem."
+                f"Skipping download. File {str(filename_with_path)} already on filesystem."
             )
             return filename_with_path
         else:
             data = requests.get(download_url, stream=True)
             if data.status_code == 200:
                 logger.debug(
-                    f"Starting download of {download_url} to {filename_with_path}"
+                    f"Starting download of {download_url} to {str(filename_with_path)}"
                 )
                 with open(filename_with_path, mode="wb") as fileobj:
                     chunk_size = 1024
@@ -158,7 +143,7 @@ class WebDriverDownloaderBase:
                         for chunk in data.iter_content(chunk_size):
                             fileobj.write(chunk)
                 logger.debug(
-                    f"Finished downloading {download_url} to {filename_with_path}"
+                    f"Finished downloading {download_url} to {str(filename_with_path)}"
                 )
                 return filename_with_path
             else:
@@ -167,6 +152,27 @@ class WebDriverDownloaderBase:
                 )
                 logger.error(error_message)
                 raise RuntimeError(error_message)
+
+    def extract_file(self, filename_with_path):
+        filename = filename_with_path.stem
+        extract_dir = self.download_path.joinpath(filename)
+        if extract_dir.exists():
+            return extract_dir
+        else:
+            extract_dir.mkdir(parents=True)
+            logger.debug(f"Created directory: {str(extract_dir)}")
+        if ".zip" in filename_with_path.suffixes:
+            with zipfile.ZipFile(filename_with_path, mode="r") as zip_file:
+                zip_file.extractall(extract_dir)
+            return extract_dir
+        elif ".tar" in filename_with_path.suffixes:
+            with tarfile.open(filename_with_path, mode="r:*") as tar_file:
+                tar_file.extractall(extract_dir)
+            return extract_dir
+        else:
+            error_message = f"Unknown archive format: {filename}"
+            logger.error(error_message)
+            raise RuntimeError(error_message)
 
     def download_and_install(
         self,
@@ -190,76 +196,47 @@ class WebDriverDownloaderBase:
         :returns: Tuple containing the path + filename to [0] the extracted binary, and [1] the symlink to the
                   extracted binary.
         """
-        zip = False
-        tar = False
         filename_with_path = self.download(
             version,
             os_name=os_name,
             bitness=bitness,
             show_progress_bar=show_progress_bar,
         )
-
-        file_name_list = os.path.split(filename_with_path)[1].split(".")
-        filename = file_name_list[0]
-        if len(file_name_list) == 2 and ("zip" in file_name_list):
-            zip = True
-            extract_dir = os.path.join(self.download_path, filename)
-        elif len(file_name_list) > 2 and ("tar" in file_name_list):
-            tar = True
-            extract_dir = os.path.join(self.download_path, filename.split("-")[0])
-        else:
-            error_message = f"Unknown archive format: {filename}"
-            logger.error(error_message)
-            raise RuntimeError(error_message)
-
-        if not os.path.exists(extract_dir):
-            os.makedirs(extract_dir)
-            logger.debug(f"Created directory: {extract_dir}")
-
-        if tar:
-            with tarfile.open(filename_with_path, mode="r:*") as tar_file:
-                tar_file.extractall(extract_dir)
-
-        if zip:
-            with zipfile.ZipFile(filename_with_path, mode="r") as zip_file:
-                zip_file.extractall(extract_dir)
+        extract_dir_path = self.extract_file(filename_with_path)
 
         driver_filename = self.get_driver_filename(os_name=os_name)
 
         os_name = self.os_name if os_name is None else os_name
 
         if os_name in ["Darwin", "Linux"]:
-            symlink_src = [
-                entry.path
-                for entry in os.scandir(extract_dir)
-                if entry.is_file() and (entry.name == driver_filename)
-            ][-1]
-            symlink_target = os.path.join(self.link_path, driver_filename)
+            symlink_src_path = [el for el in extract_dir_path.iterdir() if el.is_file() and (el.name == driver_filename)][-1]
 
+            symlink_target_path = Path(self.link_path).joinpath(driver_filename)
 
-            if os.path.islink(symlink_target):
-                try:
-                    same_file_link = os.path.samefile(symlink_src, symlink_target)
-                except FileNotFoundError:
-                    os.unlink(symlink_target)
-                else:
-                    if same_file_link:
-                        logger.info(
-                            f"Symlink already exists: {symlink_target} -> {symlink_src}"
+            if not symlink_target_path.exists():
+                logger.warning(f"{symlink_target_path.name} Does not exist")
+            if not symlink_src_path.exists():
+                logger.warning(f"{str(symlink_src_path)} Does not exist")
+
+            if symlink_target_path.is_symlink():
+                same_file_link = symlink_src_path.samefile(symlink_target_path)
+                if same_file_link:
+                    logger.info(
+                            f"Symlink already exists: {str(symlink_target_path)} -> {str(symlink_src_path)}"
                         )
-                        return tuple([symlink_src, symlink_target])
-
-            os.symlink(symlink_src, symlink_target)
-            logger.info(f"Created symlink: {symlink_target} -> {symlink_src}")
-            st = os.stat(symlink_src)
-            os.chmod(
-                symlink_src, st.st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
-            )
-            return tuple([symlink_src, symlink_target])
+                    symlink_src_path.chmod(0o755)
+                    symlink_target_path.chmod(0o755)
+                    return tuple([str(symlink_src_path), str(symlink_target_path)])
+            else:
+                symlink_target_path.symlink_to(symlink_src_path)
+                logger.info(f"Created symlink: {str(symlink_target_path)} -> {str(symlink_src_path)}")
+                symlink_src_path.chmod(0o755)
+                symlink_target_path.chmod(0o755)
+                return tuple([str(symlink_src_path), str(symlink_target_path)])
         elif os_name == "Windows":
             src_file = [
                 entry.path
-                for entry in os.scandir(extract_dir)
+                for entry in os.scandir(extract_dir_path)
                 if entry.is_file() and (entry.name == driver_filename)
             ][-1]
             dest_file = os.path.join(self.link_path, driver_filename)
@@ -420,7 +397,8 @@ class ChromeDriverDownloader(WebDriverDownloaderBase):
             ver = self._get_latest_version_number()
         else:
             ver = version
-        return os.path.join(self.download_root, "chrome", ver)
+
+        return Path(self.download_root).joinpath("chrome", ver)
 
     def get_download_url(self, version="latest", os_name=None, bitness=None):
         """
