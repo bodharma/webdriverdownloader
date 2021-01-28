@@ -11,7 +11,7 @@ with open(path.join(here, "README.rst"), encoding="utf-8") as f:
 
 setup(
     name="webdriverdownloader2",
-    version="2.0.2",
+    version="2.0.3",
     description="Python module and CLI tool for facilitating download and deploy of WebDriver binaries.",
     long_description=long_description,
     long_description_content_type="text/x-rst",
